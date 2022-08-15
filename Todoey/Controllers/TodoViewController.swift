@@ -6,10 +6,12 @@
 //
 
 import UIKit
+import CoreData
 
 class TodoViewController: UITableViewController {
     
     var items = [TodoItem]()
+    let context = (UIApplication.shared.delegate as! AppDelegate).persistentContainer.viewContext
     
     let datatFilePath = FileManager.default.urls(for: .documentDirectory, in: .userDomainMask).first?.appendingPathComponent("TodoItems.plist")
     
@@ -27,25 +29,19 @@ class TodoViewController: UITableViewController {
     //MARK: - Load Items from Plist
     
     func loadItems() {
-        if let data = try? Data(contentsOf: datatFilePath!) {
-            let decoder = PropertyListDecoder()
-            do {
-                items = try decoder.decode([TodoItem].self, from: data)
-            } catch {
-                print("Error Decding todo items from plist \(error)")
-            }
+        let request: NSFetchRequest<TodoItem> = TodoItem.fetchRequest()
+        do {
+            self.items = try self.context.fetch(request)
+        } catch {
+            print("Error fetching data from db \(error)")
         }
     }
     
     //MARK: - Save or Update item
     
     func saveItem() {
-        let encoder = PropertyListEncoder()
         do {
-            let data = try encoder.encode(self.items)
-            if let safeDataFilePath = self.datatFilePath {
-                try data.write(to: safeDataFilePath)
-            }
+            try context.save()
         } catch {
             print("DATABASE writting Error \(error)")
         }
@@ -81,7 +77,10 @@ class TodoViewController: UITableViewController {
         let action = UIAlertAction(title: "Add Item", style: .default){ (action) in
             print("Added")
             if let safeTextField = textField {
-                self.items.append(TodoItem(title: safeTextField.text!, done: false))
+                let item = TodoItem(context: self.context)
+                item.done = false
+                item.title = safeTextField.text!
+                self.items.append(item)
                 self.saveItem()
                 self.tableView.reloadData()
             }
