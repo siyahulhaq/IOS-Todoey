@@ -62,10 +62,14 @@ class TodoViewController: UITableViewController {
     override func tableView(_ tableView: UITableView, didSelectRowAt indexPath: IndexPath) {
         let item = self.items[indexPath.row]
         item.done = !item.done
+//        context.delete(item)
+//        items.remove(at: indexPath.row)
         self.saveItem()
         tableView.reloadData()
         tableView.deselectRow(at: indexPath, animated: true)
     }
+    
+    //MARK: - Delete Item
     
     //MARK: - Add new Item
     
