@@ -12,14 +12,16 @@ class TodoViewController: UITableViewController {
     
     var items = [TodoItem]()
     let context = (UIApplication.shared.delegate as! AppDelegate).persistentContainer.viewContext
+    var category: Category? {
+        didSet {
+            loadItems()
+        }
+    }
     
     let datatFilePath = FileManager.default.urls(for: .documentDirectory, in: .userDomainMask).first?.appendingPathComponent("TodoItems.plist")
     
     override func viewDidLoad() {
         super.viewDidLoad()
-        loadItems()
-        
-        // Do any additional setup after loading the view.
     }
     
     override func tableView(_ tableView: UITableView, numberOfRowsInSection section: Int) -> Int {
@@ -28,12 +30,21 @@ class TodoViewController: UITableViewController {
     
     //MARK: - Load Items from Plist
     
-    func loadItems() {
-        let request: NSFetchRequest<TodoItem> = TodoItem.fetchRequest()
-        do {
-            self.items = try self.context.fetch(request)
-        } catch {
-            print("Error fetching data from db \(error)")
+    func loadItems(with request: NSFetchRequest<TodoItem> = TodoItem.fetchRequest(), predicate: NSPredicate? = nil) {
+        if let safeCategory = category {
+            let categoryPredicate = NSPredicate(format: "parentCategory.name MATCHES %@", safeCategory.name!)
+            if let safePredicate = predicate {
+                request.predicate = NSCompoundPredicate(andPredicateWithSubpredicates: [categoryPredicate, safePredicate])
+            } else {
+                request.predicate = categoryPredicate;
+            }
+            do {
+                self.items = try self.context.fetch(request)
+                print(self.items)
+            } catch {
+                print("Error fetching data from db \(error)")
+            }
+            tableView.reloadData()
         }
     }
     
@@ -71,6 +82,12 @@ class TodoViewController: UITableViewController {
     
     //MARK: - Delete Item
     
+    func deleteItem(index: Int) {
+        context.delete(items[index])
+        items.remove(at: index)
+        self.saveItem()
+    }
+    
     //MARK: - Add new Item
     
     @IBAction func addTodoItem(_ sender: UIBarButtonItem) {
@@ -84,6 +101,7 @@ class TodoViewController: UITableViewController {
                 let item = TodoItem(context: self.context)
                 item.done = false
                 item.title = safeTextField.text!
+                item.parentCategory = self.category
                 self.items.append(item)
                 self.saveItem()
                 self.tableView.reloadData()
@@ -100,6 +118,33 @@ class TodoViewController: UITableViewController {
         present(alert, animated: true, completion: nil)
     }
     
-    
+    }
+
+//MARK: - Search Bar Methods
+
+extension TodoViewController: UISearchBarDelegate {
+    func searchBarSearchButtonClicked(_ searchBar: UISearchBar,_ shouldDismissKb: Bool = true) {
+        let request: NSFetchRequest<TodoItem> = TodoItem.fetchRequest()
+        if searchBar.text! != "" {
+            let predicate = NSPredicate(format: "title CONTAINS[cd] %@", searchBar.text!)
+            loadItems(with: request, predicate: predicate)
+        }
+        if shouldDismissKb {
+            DispatchQueue.main.async {
+                searchBar.resignFirstResponder()
+            }
+        }
+    }
+    func searchBar(_ searchBar: UISearchBar, textDidChange searchText: String) {
+        if searchBar.text!.count == 0 {
+            loadItems()
+            DispatchQueue.main.async {
+                searchBar.resignFirstResponder()
+            }
+        } else {
+            self.searchBarSearchButtonClicked(searchBar, false)
+        }
+    }
+
 }
 
